@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NurmoAI Chatbot</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.3.4/axios.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto p-4 max-w-2xl">
+        <h1 class="text-3xl font-bold mb-4 text-center text-blue-600">NurmoAI Chatbot</h1>
+        <div class="space-y-4 mb-4">
+            <input type="text" id="api-key-input" placeholder="Enter your API key" class="w-full p-2 border rounded">
+            <input type="text" id="personality-input" value="E-girl Luna" placeholder="Enter personality" class="w-full p-2 border rounded">
+            <div class="flex justify-between">
+                <a href="https://nurmo.app" target="_blank" class="text-blue-500 hover:underline">Get API Key</a>
+                <a href="https://nurmonic.xyz/personalities?loadOnlyAuthor=NurmoAI" target="_blank" class="text-blue-500 hover:underline">Get list of personalities</a>
+            </div>
+        </div>
+        <div id="chat-container" class="bg-white border rounded-lg p-4 h-96 overflow-y-auto mb-4"></div>
+        <div class="flex space-x-2">
+            <input type="text" id="user-input" placeholder="Type your message here..." class="flex-grow p-2 border rounded">
+            <button onclick="sendMessage()" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">Send</button>
+        </div>
+    </div>
+
+    <script>
+        const chatContainer = document.getElementById('chat-container');
+        const userInput = document.getElementById('user-input');
+        const apiKeyInput = document.getElementById('api-key-input');
+        const personalityInput = document.getElementById('personality-input');
+        const url = 'https://api.nurmo.app/chat/completions';
+        let messages = [];
+
+        function setCookie(name, value, days) {
+            const expires = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toUTCString();
+            document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/`;
+        }
+
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return decodeURIComponent(parts.pop().split(';').shift());
+        }
+
+        function loadStoredValues() {
+            const storedApiKey = getCookie('apiKey');
+            const storedPersonality = getCookie('personality');
+            if (storedApiKey) apiKeyInput.value = storedApiKey;
+            if (storedPersonality) personalityInput.value = storedPersonality;
+        }
+
+        function addMessage(role, content) {
+            const timestamp = new Date().toLocaleTimeString();
+            const message = { role, content, timestamp };
+            messages.push(message);
+            displayMessage(message);
+        }
+
+        function displayMessage(message) {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('mb-2', 'p-2', 'rounded');
+            if (message.role === 'user') {
+                messageElement.classList.add('bg-blue-100', 'text-blue-800');
+            } else {
+                messageElement.classList.add('bg-green-100', 'text-green-800');
+            }
+            messageElement.innerHTML = `
+                <strong>${message.role === 'user' ? 'You' : 'Bot'}:</strong> ${message.content}
+                <span class="text-xs text-gray-500 ml-2">${message.timestamp}</span>
+            `;
+            chatContainer.appendChild(messageElement);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const userMessage = userInput.value.trim();
+            const apiKey = apiKeyInput.value.trim();
+            const personality = personalityInput.value.trim();
+
+            if (userMessage === '' || apiKey === '' || personality === '') {
+                alert('Please fill in all fields (API key, personality, and message).');
+                return;
+            }
+
+            setCookie('apiKey', apiKey, 30);
+            setCookie('personality', personality, 30);
+
+            addMessage('user', userMessage);
+            userInput.value = '';
+
+            try {
+                const response = await axios.post(url, {
+                    model: 'nurmo-3',
+                    character: personality,
+                    messages: messages.map(({ role, content }) => ({ role, content }))
+                }, {
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                const botMessage = response.data;
+                addMessage('assistant', botMessage);
+            } catch (error) {
+                console.error('Error:', error);
+                addMessage('assistant', 'Sorry, I encountered an error. Please check your API key and try again.');
+            }
+        }
+
+        userInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        loadStoredValues();
+    </script>
+</body>
+</html>
